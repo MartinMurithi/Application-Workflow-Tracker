@@ -3,7 +3,7 @@
 ## Quick Start (Docker)
 
 ```bash
-git clone <repo>
+git clone https://github.com/MartinMurithi/Application-Workflow-Tracker
 cd app-workflow-tracker
 docker-compose up --build
 ```
