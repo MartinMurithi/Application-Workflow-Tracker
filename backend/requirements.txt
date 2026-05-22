@@ -1,0 +1,5 @@
+django
+django-ninja
+psycopg2-binary
+python-dotenv
+gunicorn
