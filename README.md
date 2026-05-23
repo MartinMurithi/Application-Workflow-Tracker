@@ -91,3 +91,6 @@ The full interactive API is available at `http://localhost:8000/api/docs` (Swagg
 - **Email notifications**: Send emails on submission confirmation, decision, and more-info requests
 - **Test suite**: Unit tests for `ApplicationService` (workflow edge cases), integration tests for all API endpoints
 - **Optimistic UI updates**: Update local state immediately on action, revert on failure
+
+- **Name**: Martin Wachira
+- **Email**: wachiramartin442@gmail.com
