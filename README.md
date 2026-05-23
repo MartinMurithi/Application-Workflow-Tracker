@@ -1,5 +1,8 @@
 # Application Workflow Tracker
 
+## Name: Martin Wachira
+## Email: wachiramartin442@gmail.com
+
 ## Quick Start (Docker)
 
 ```bash
@@ -92,5 +95,3 @@ The full interactive API is available at `http://localhost:8000/api/docs` (Swagg
 - **Test suite**: Unit tests for `ApplicationService` (workflow edge cases), integration tests for all API endpoints
 - **Optimistic UI updates**: Update local state immediately on action, revert on failure
 
-- **Name**: Martin Wachira
-- **Email**: wachiramartin442@gmail.com
