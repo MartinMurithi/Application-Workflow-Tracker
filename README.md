@@ -1,8 +1,5 @@
 # Application Workflow Tracker
 
-## Name: Martin Wachira
-## Email: wachiramartin442@gmail.com
-
 ## Quick Start (Docker)
 
 ```bash
@@ -17,15 +14,77 @@ docker-compose up --build
 
 Migrations run automatically on backend startup. No manual steps needed.
 
+---
+
+## Manual Setup (without Docker)
+
+### Backend
+
+```bash
+cd backend
+
+## Create a virtual environment
+Windows: python -m venv .venv
+macOS / Linux: python3 -m venv .venv
+
+## Activate the environment
+Windows (Command Prompt): .venv\Scripts\activate
+Windows (PowerShell): .\.venv\Scripts\Activate.ps1
+macOS / Linux source: .venv/bin/activate
+
+pip install -r requirements.txt
+
+cp .env.example .env
+# Edit .env with your local DB credentials
+
+python manage.py migrate
+python manage.py runserver
 ```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+cp .env.example .env
+# Edit VITE_API_URL if needed
+npm run dev
+```
+
+---
+
+## Environment Variables
+
+### Backend (`backend/.env`)
+
+| Variable | Default | Description |
+|---|---|---|
+| `SECRET_KEY` | (dev value) | Django secret key. Change in production. |
+| `DEBUG` | `True` | Django debug mode |
+| `ALLOWED_HOSTS` | `localhost,...` | Comma-separated allowed hostnames |
+| `DB_NAME` | `apptracker` | PostgreSQL database name |
+| `DB_USER` | `apptracker` | PostgreSQL user |
+| `DB_PASSWORD` | `apptracker` | PostgreSQL password |
+| `DB_HOST` | `db` | PostgreSQL host (`db` for Docker, `localhost` for local) |
+| `DB_PORT` | `5432` | PostgreSQL port |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated allowed CORS origins |
+
+### Frontend (`frontend/.env`)
+
+| Variable | Default | Description |
+|---|---|---|
+| `VITE_API_URL` | `/api` | Base URL for the API. Use `http://localhost:8000/api` for local dev without proxy. |
+
+---
+
 ## Tech Stack
 
 | Layer | Choice |
 |---|---|
-| Backend framework | Django |
+| Backend framework | Django 5 |
 | API layer | Django Ninja (OpenAPI/Swagger built-in) |
-| Database | PostgreSQL |
-| Frontend | React + Vite |
+| Database | PostgreSQL 16 |
+| Frontend | React 18 + Vite |
 | Styling | TailwindCSS 3 |
 | Infra | Docker + Docker Compose |
 
@@ -35,13 +94,44 @@ Migrations run automatically on backend startup. No manual steps needed.
 
 **Design decision: `X-Role` header approach**
 
-The project uses a simple `X-Role: applicant | reviewer` HTTP header to differentiate roles, rather than a full authentication system.
+This project uses a simple `X-Role: applicant | reviewer` HTTP header to differentiate roles, rather than a full authentication system.
+
+**Why this approach:**
+
+- The spec explicitly says "do NOT use complex auth systems"
+- The header approach keeps the codebase lean and testable — reviewers can be simulated by changing one header
+- In a real system, this header would be set by an upstream auth gateway (e.g. after JWT validation), not by the client
+- It maps cleanly to Django Ninja's request inspection without any middleware overhead
 
 **In the frontend**, role is stored in `localStorage` and toggled via the UI switcher in the top nav. This simulates switching between an applicant and a reviewer session.
 
 **In the backend**, every request inspects `request.headers.get("X-Role", "applicant")`. Reviewer-only endpoints (start review, decision) return `403` if the role is not `reviewer`.
 
+> **To improve with real auth:** Replace the header check in `api.py`'s `_is_reviewer()` with a JWT decode or Django session user check. The service layer and workflow logic are completely auth-agnostic.
+
+---
+
+## Workflow State Machine
+
+```
+DRAFT
+  │
+  ▼ (applicant: submit)
+SUBMITTED
+  │
+  ▼ (reviewer: start-review)
+UNDER REVIEW
+  ├──▶ APPROVED       (immutable)
+  ├──▶ REJECTED       (immutable)
+  └──▶ NEED MORE INFO
+           │
+           ▼ (applicant: edit + resubmit)
+        SUBMITTED  (loops back)
+```
+
 All transitions are enforced **server-side** in `applications/services.py`. The frontend reflects available actions based on status but cannot bypass server validation.
+
+---
 
 ## API Reference
 
@@ -73,6 +163,42 @@ The full interactive API is available at `http://localhost:8000/api/docs` (Swagg
 }
 ```
 
+---
+
+## Project Structure
+
+```
+app-workflow-tracker/
+├── backend/
+│   ├── core/                    # Django project (settings, urls, wsgi, middleware)
+│   ├── applications/
+│   │   ├── models.py            # Application model + enums + state machine helpers
+│   │   ├── services.py          # Business logic / workflow enforcement
+│   │   ├── schemas.py           # Django Ninja request/response schemas
+│   │   ├── api.py               # API endpoints (thin layer, delegates to services)
+│   │   └── migrations/
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   └── entrypoint.sh            # DB wait + migrate + gunicorn
+├── frontend/
+│   ├── src/
+│   │   ├── api/client.js        # Fetch wrapper with role header
+│   │   ├── hooks/useRole.jsx    # Role context (localStorage + React context)
+│   │   ├── components/
+│   │   │   ├── Layout.jsx       # Top nav, role switcher
+│   │   │   └── StatusBadge.jsx  # Colored status pill
+│   │   ├── pages/
+│   │   │   ├── ApplicationList.jsx    # Table view with search/filter
+│   │   │   ├── ApplicationForm.jsx    # Create + edit form (shared)
+│   │   │   └── ApplicationDetail.jsx  # Detail + workflow action panel
+│   │   └── utils/status.js      # Color maps, formatters
+│   └── Dockerfile
+├── docker-compose.yml
+└── README.md
+```
+
+---
+
 ## Design Decisions
 
 1. **Service layer over fat models / fat views**: Business logic lives in `ApplicationService` (stateless class methods). Models remain pure Django ORM. API endpoints are thin dispatchers.
@@ -91,7 +217,10 @@ The full interactive API is available at `http://localhost:8000/api/docs` (Swagg
 
 - **Real authentication**: JWT-based auth with separate User model, role assigned to user record, not header
 - **Pagination**: `/applications` endpoint should return paginated results with cursor or page-based pagination
+- **Filtering at API level**: Push status/search filters to the database query rather than client-side
+- **Audit log**: Track every status transition with timestamp, actor, and comment in a separate `ApplicationEvent` model
 - **Email notifications**: Send emails on submission confirmation, decision, and more-info requests
 - **Test suite**: Unit tests for `ApplicationService` (workflow edge cases), integration tests for all API endpoints
+- **Frontend error boundary**: Global React error boundary with proper fallback UI
 - **Optimistic UI updates**: Update local state immediately on action, revert on failure
-
+- **Docker production config**: Separate `docker-compose.prod.yml` with `gunicorn` tuning, nginx reverse proxy, and static file serving
