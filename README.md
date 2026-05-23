@@ -107,8 +107,6 @@ This project uses a simple `X-Role: applicant | reviewer` HTTP header to differe
 
 **In the backend**, every request inspects `request.headers.get("X-Role", "applicant")`. Reviewer-only endpoints (start review, decision) return `403` if the role is not `reviewer`.
 
-> **To improve with real auth:** Replace the header check in `api.py`'s `_is_reviewer()` with a JWT decode or Django session user check. The service layer and workflow logic are completely auth-agnostic.
-
 ---
 
 ## Workflow State Machine
