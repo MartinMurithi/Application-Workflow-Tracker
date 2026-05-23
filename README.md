@@ -98,8 +98,7 @@ This project uses a simple `X-Role: applicant | reviewer` HTTP header to differe
 
 **Why this approach:**
 
-- The spec explicitly says "do NOT use complex auth systems"
-- The header approach keeps the codebase lean and testable — reviewers can be simulated by changing one header
+- The header approach keeps the codebase lean — reviewers can be simulated by changing one header
 - In a real system, this header would be set by an upstream auth gateway (e.g. after JWT validation), not by the client
 - It maps cleanly to Django Ninja's request inspection without any middleware overhead
 
@@ -216,9 +215,5 @@ app-workflow-tracker/
 - **Real authentication**: JWT-based auth with separate User model, role assigned to user record, not header
 - **Pagination**: `/applications` endpoint should return paginated results with cursor or page-based pagination
 - **Filtering at API level**: Push status/search filters to the database query rather than client-side
-- **Audit log**: Track every status transition with timestamp, actor, and comment in a separate `ApplicationEvent` model
-- **Email notifications**: Send emails on submission confirmation, decision, and more-info requests
 - **Test suite**: Unit tests for `ApplicationService` (workflow edge cases), integration tests for all API endpoints
 - **Frontend error boundary**: Global React error boundary with proper fallback UI
-- **Optimistic UI updates**: Update local state immediately on action, revert on failure
-- **Docker production config**: Separate `docker-compose.prod.yml` with `gunicorn` tuning, nginx reverse proxy, and static file serving
